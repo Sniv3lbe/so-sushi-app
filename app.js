@@ -1,14 +1,20 @@
+// app.js
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Route de test
+// On importe le sequelize configuré
+const sequelize = require('./config/database');
+
+// Test de connexion
+sequelize.authenticate()
+  .then(() => console.log('Connexion MySQL OK.'))
+  .catch(err => console.error('Erreur connexion MySQL :', err));
+
 app.get('/', (req, res) => {
-  res.send('Hello from So Sushi App!');
+  res.send('Hello from So Sushi App with DB config!');
 });
 
-// Lancement du serveur
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
-
