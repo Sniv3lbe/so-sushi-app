@@ -126,15 +126,14 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       responsable_so_sushi,
       responsable_carrefour,
       signature,
-      details // JSON string, ex: '[{"produitId":1,"quantite":2}, ...]'
+      details
     } = req.body;
 
     let photoPath = null;
     if (req.file) {
-      photoPath = req.file.path; // ex: "uploads/1689456129_123456.jpg"
+      photoPath = req.file.path;
     }
 
-    // Création de la livraison (table livraisons)
     const newLivraison = await models.Livraison.create({
       magasinId,
       date_livraison,
@@ -144,7 +143,6 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       photo: photoPath
     });
 
-    // Création des détails (livraisons_details)
     let parsedDetails = [];
     if (details) {
       parsedDetails = JSON.parse(details);
@@ -221,13 +219,11 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
   try {
     const { magasinId, startDate, endDate } = req.params;
 
-    // 1) Récupérer le magasin
     const magasin = await models.Magasin.findByPk(magasinId);
     if (!magasin) {
       return res.status(404).json({ message: 'Magasin introuvable' });
     }
 
-    // 2) Récupérer toutes les livraisons sur la période
     const livraisons = await models.Livraison.findAll({
       where: {
         magasinId,
@@ -243,7 +239,6 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
       ]
     });
 
-    // 3) Récupérer toutes les récupérations sur la période
     const recuperations = await models.Recuperation.findAll({
       where: {
         magasinId,
@@ -259,7 +254,6 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
       ]
     });
 
-    // 4) Calcul des montants
     let totalLivraisonHT = 0;
     livraisons.forEach(livr => {
       livr.LivraisonDetails.forEach(ld => {
@@ -283,10 +277,9 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     const tva = netHT * tvaRate;
     const totalTTC = netHT + tva;
 
-    // 5) Génération du PDF avec PDFKit
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
-    // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf'); // si besoin du téléchargement
+    // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf');
 
     doc.fontSize(20).text('FACTURE / INVOICE', { align: 'center' });
     doc.moveDown();
@@ -329,7 +322,6 @@ app.post('/facture/email', async (req, res) => {
   try {
     const { magasinId, startDate, endDate, emailDest } = req.body;
 
-    // (Simplification pour l'exemple)
     const totalLivraisonHT = 100;
     const totalRecuperationHT = 20;
     const netHT = 80;
@@ -337,7 +329,6 @@ app.post('/facture/email', async (req, res) => {
     const tva = netHT * tvaRate;
     const totalTTC = netHT + tva;
 
-    // Générer le PDF en mémoire (Buffer)
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     let buffers = [];
 
@@ -345,7 +336,6 @@ app.post('/facture/email', async (req, res) => {
     doc.on('end', async () => {
       let pdfData = Buffer.concat(buffers);
 
-      // Config nodemailer
       const mailHost = process.env.MAIL_HOST || 'smtp.monserveur.com';
       const mailPort = parseInt(process.env.MAIL_PORT || '587', 10);
       const mailUser = process.env.MAIL_USER || 'monuser@exemple.com';
@@ -403,7 +393,6 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
   try {
     const { startDate, endDate } = req.params;
 
-    // Récupérer toutes les LivraisonDetails
     const livDetails = await models.LivraisonDetail.findAll({
       include: [
         {
@@ -420,7 +409,6 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
       ]
     });
 
-    // Récupérer toutes les RecuperationDetails
     const recDetails = await models.RecuperationDetail.findAll({
       include: [
         {
@@ -469,7 +457,6 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
 /******************************************************
  * ========== ROUTES ADMIN (EJS) POUR PRODUITS ==========
  ******************************************************/
-
 // GET /admin/produits => Liste EJS
 app.get('/admin/produits', async (req, res) => {
   try {
@@ -499,40 +486,10 @@ app.post('/admin/produits', async (req, res) => {
 });
 
 /******************************************************
- * ========== ROUTES ADMIN (EJS) POUR MAGASINS ==========
+ * ========== (Tu peux créer d'autres routes admin EJS ici) ==========
  ******************************************************/
 
-// GET /admin/magasins => Liste EJS
-app.get('/admin/magasins', async (req, res) => {
-  try {
-    const magasins = await models.Magasin.findAll();
-    res.render('admin/magasins', { magasins });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Erreur chargement magasins');
-  }
-});
-
-// GET /admin/magasins/new => Formulaire EJS
-app.get('/admin/magasins/new', (req, res) => {
-  res.render('admin/newMagasin');
-});
-
-// POST /admin/magasins => Crée un magasin, puis redirige
-app.post('/admin/magasins', async (req, res) => {
-  try {
-    const { nom, adresse, email_notification } = req.body;
-    await models.Magasin.create({ nom, adresse, email_notification });
-    res.redirect('/admin/magasins');
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Erreur création magasin');
-  }
-});
-
-/******************************************************
- * Lancement du serveur
- ******************************************************/
+// Lancement du serveur
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
