@@ -1,20 +1,34 @@
 // app.js
+
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// On importe le sequelize configuré
+// On importe l'instance Sequelize configurée
 const sequelize = require('./config/database');
 
-// Test de connexion
-sequelize.authenticate()
-  .then(() => console.log('Connexion MySQL OK.'))
-  .catch(err => console.error('Erreur connexion MySQL :', err));
+// On importe tous les modèles pour qu'ils s'enregistrent automatiquement
+const models = require('./models'); // charge models/index.js
 
+// Test de connexion + synchronisation des tables
+sequelize.authenticate()
+  .then(() => {
+    console.log('Connexion MySQL OK.');
+    
+    // Synchroniser la base (force: false pour ne pas recréer les tables à chaque démarrage)
+    return sequelize.sync({ force: false });
+  })
+  .then(() => {
+    console.log('Tables synchronisées !');
+  })
+  .catch(err => console.error('Erreur sync DB :', err));
+
+// Exemple de route
 app.get('/', (req, res) => {
-  res.send('Hello from So Sushi App with DB config!');
+  res.send('Hello from So Sushi App with Sequelize models!');
 });
 
+// Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
