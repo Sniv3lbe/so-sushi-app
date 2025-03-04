@@ -1,25 +1,36 @@
 // app.js
 
+/******************************************************
+ * Chargement du .env en local (aucun impact en prod
+ * si le fichier .env n'existe pas sur le serveur)
+ ******************************************************/
+require('dotenv').config();
+
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
-const moment = require('moment'); // pour formater les dates
-const nodemailer = require('nodemailer'); // <-- N'oublie pas d'installer nodemailer (npm install nodemailer)
+const moment = require('moment');
+const nodemailer = require('nodemailer');
 
-// Sequelize + modèles
+// On importe la config Sequelize (qui lit aussi le .env en local)
 const sequelize = require('./config/database');
-const models = require('./models'); // chargera Magasin, Produit, Livraison, etc.
+// On importe tous les modèles (models/index.js) si nécessaire
+const models = require('./models'); // Magasin, Produit, Livraison, etc.
 
 const app = express();
+
+// Récupère le port depuis .env ou, à défaut, 3000
 const PORT = process.env.PORT || 3000;
 
 // Middlewares pour parser JSON / urlencoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 1) Configuration Multer (pour l'upload de photos/signatures)
+/******************************************************
+ * 1) Configuration Multer (pour l'upload de photos/signatures)
+ ******************************************************/
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/'); // dossier où stocker les fichiers
@@ -31,7 +42,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// 2) Test de connexion DB + synchronisation
+/******************************************************
+ * 2) Test de connexion DB + synchronisation
+ ******************************************************/
 sequelize.authenticate()
   .then(() => {
     console.log('Connexion MySQL OK.');
@@ -43,14 +56,18 @@ sequelize.authenticate()
   })
   .catch(err => console.error('Erreur sync DB :', err));
 
-// ROUTE DE TEST
+/******************************************************
+ * ROUTE DE TEST
+ ******************************************************/
 app.get('/', (req, res) => {
   res.send('Hello from So Sushi App with Sequelize models!');
 });
 
-// 3) Routes Magasins (CRUD minimal)
-//    - POST /magasins => crée un magasin
-//    - GET /magasins  => liste des magasins
+/******************************************************
+ * 3) Routes Magasins (CRUD minimal)
+ *    - POST /magasins  => crée un magasin
+ *    - GET /magasins   => liste des magasins
+ ******************************************************/
 app.post('/magasins', async (req, res) => {
   try {
     const { nom, adresse, email_notification } = req.body;
@@ -72,9 +89,11 @@ app.get('/magasins', async (req, res) => {
   }
 });
 
-// 4) Routes Produits
-//    - POST /produits => créer un produit
-//    - GET /produits  => lister
+/******************************************************
+ * 4) Routes Produits
+ *    - POST /produits => créer un produit
+ *    - GET /produits  => lister
+ ******************************************************/
 app.post('/produits', async (req, res) => {
   try {
     const { nom, prix_unitaire } = req.body;
@@ -96,9 +115,11 @@ app.get('/produits', async (req, res) => {
   }
 });
 
-// 5) Route Livraisons
-//    On reçoit : magasinId, date_livraison, responsable_so_sushi, responsable_carrefour
-//                signature (base64?), photo (upload), details (tableau [{produitId, quantite}])
+/******************************************************
+ * 5) Route Livraisons
+ *    - POST /livraisons => créer une livraison (+ photo)
+ *    - details est un tableau JSON : [{ produitId, quantite }, ...]
+ ******************************************************/
 app.post('/livraisons', upload.single('photo'), async (req, res) => {
   try {
     const {
@@ -106,8 +127,8 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       date_livraison,
       responsable_so_sushi,
       responsable_carrefour,
-      signature,  // base64 string
-      details     // JSON string : ex. '[{"produitId":1,"quantite":2}, ...]'
+      signature,
+      details // JSON string, ex: '[{"produitId":1,"quantite":2}, ...]'
     } = req.body;
 
     let photoPath = null;
@@ -115,7 +136,7 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       photoPath = req.file.path; // ex: "uploads/1689456129_123456.jpg"
     }
 
-    // 1) Création de la livraison
+    // Création de la livraison
     const newLivraison = await models.Livraison.create({
       magasinId,
       date_livraison,
@@ -125,7 +146,7 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       photo: photoPath
     });
 
-    // 2) Création des détails
+    // Création des détails
     let parsedDetails = [];
     if (details) {
       parsedDetails = JSON.parse(details);
@@ -146,9 +167,11 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
   }
 });
 
-// 6) Route Récupérations
-//    On reçoit : magasinId, date_recuperation, responsable_so_sushi, responsable_carrefour
-//                signature, photo, details
+/******************************************************
+ * 6) Route Récupérations
+ *    - POST /recuperations => créer une récupération (+ photo)
+ *    - details est un tableau JSON : [{ produitId, quantite }, ...]
+ ******************************************************/
 app.post('/recuperations', upload.single('photo'), async (req, res) => {
   try {
     const {
@@ -194,7 +217,9 @@ app.post('/recuperations', upload.single('photo'), async (req, res) => {
   }
 });
 
-// 7) Route pour générer une facture (PDF)
+/******************************************************
+ * 7) Route pour générer une facture (PDF)
+ ******************************************************/
 app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
   try {
     const { magasinId, startDate, endDate } = req.params;
@@ -205,7 +230,7 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
       return res.status(404).json({ message: 'Magasin introuvable' });
     }
 
-    // 2) Récupérer toutes les livraisons sur la période (jointure sur LivraisonDetail + Produit)
+    // 2) Récupérer toutes les livraisons sur la période
     const livraisons = await models.Livraison.findAll({
       where: {
         magasinId,
@@ -266,7 +291,7 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
 
     // Envoyer le PDF en streaming dans la réponse HTTP
     res.setHeader('Content-Type', 'application/pdf');
-    // Pour forcer le téléchargement, décommente la ligne ci-dessous :
+    // Pour forcer le téléchargement :
     // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf');
 
     doc.fontSize(20).text('FACTURE / INVOICE', { align: 'center' });
@@ -280,7 +305,7 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     doc.text(`Magasin: ${magasin.nom}`);
     doc.moveDown();
 
-    // Détails des montants
+    // Montants
     doc.text(`Total Livraisons HT: ${totalLivraisonHT.toFixed(2)} €`);
     doc.text(`Total Récupérations HT: ${totalRecuperationHT.toFixed(2)} €`);
     doc.text(`Net HT (liv - récup): ${netHT.toFixed(2)} €`);
@@ -288,7 +313,7 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     doc.text(`Total TTC: ${totalTTC.toFixed(2)} €`);
     doc.moveDown();
 
-    // Coordonnées de paiement (exemple)
+    // Coordonnées de paiement
     doc.text(`Coordonnées de paiement:`);
     doc.text(`BANQUE: XXX`);
     doc.text(`IBAN: BE00 0000 0000 0000`);
@@ -306,43 +331,50 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
   }
 });
 
-// 8) Route pour envoyer la facture par email
+/******************************************************
+ * 8) Route pour envoyer la facture par email
+ ******************************************************/
 app.post('/facture/email', async (req, res) => {
   try {
     const { magasinId, startDate, endDate, emailDest } = req.body;
 
-    // 1) Ici, tu peux reprendre la logique de calcul (totaux, TVA, etc.)
-    //    ou faire quelque chose de simplifié :
-    const totalLivraisonHT = 100;   // Exemple
-    const totalRecuperationHT = 20; // Exemple
-    const netHT = 80;              // Exemple
+    // (Simplification pour l'exemple)
+    const totalLivraisonHT = 100;
+    const totalRecuperationHT = 20;
+    const netHT = 80;
     const tvaRate = 0.06;
     const tva = netHT * tvaRate;
     const totalTTC = netHT + tva;
 
-    // 2) Générer le PDF dans un buffer
+    // Générer le PDF en mémoire (Buffer)
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     let buffers = [];
-    
+
     doc.on('data', (chunk) => buffers.push(chunk));
     doc.on('end', async () => {
-      // Quand le PDF est fini, on convertit le tableau de chunks en buffer
       let pdfData = Buffer.concat(buffers);
 
-      // 3) Envoyer l'email avec la PJ
+      // Config nodemailer
+      // => Lis par exemple user/pass/host/port depuis .env ou variables d'env
+      const mailHost = process.env.MAIL_HOST || 'smtp.monserveur.com';
+      const mailPort = parseInt(process.env.MAIL_PORT || '587', 10);
+      const mailUser = process.env.MAIL_USER || 'monuser@exemple.com';
+      const mailPass = process.env.MAIL_PASS || 'secret';
+
       let transporter = nodemailer.createTransport({
-        host: 'smtp.monserveur.com',
-        port: 587,
-        secure: false, // true si SSL
+        host: mailHost,
+        port: mailPort,
+        secure: false, // 'false' si TLS, 'true' si SSL
         auth: {
-          user: 'monuser@exemple.com',
-          pass: 'secret'
+          user: mailUser,
+          pass: mailPass
         }
       });
 
+      // Email + pièce jointe
       let mailOptions = {
         from: '"So Sushi" <noreply@sosushi.be>',
-        to: emailDest, 
+        to: emailDest,
         subject: "Votre facture So Sushi",
         text: "Veuillez trouver ci-joint votre facture.",
         attachments: [
@@ -359,7 +391,6 @@ app.post('/facture/email', async (req, res) => {
       return res.json({ message: 'Facture envoyée par email avec succès' });
     });
 
-    // Contenu du PDF (exemple)
     doc.fontSize(20).text('FACTURE EXAMPLE', { align: 'center' });
     doc.moveDown();
     doc.text(`Total Livraisons HT: ${totalLivraisonHT.toFixed(2)} €`);
@@ -376,7 +407,81 @@ app.post('/facture/email', async (req, res) => {
   }
 });
 
-// Lancement du serveur
+/******************************************************
+ * 9) Route stats : livraisons / récupérations par produit
+ ******************************************************/
+app.get('/stats/:startDate/:endDate', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.params;
+
+    // 1) Récupérer toutes les LivraisonDetails (jointure sur Livraison + Produit)
+    const livDetails = await models.LivraisonDetail.findAll({
+      include: [
+        {
+          model: models.Livraison,
+          where: {
+            date_livraison: {
+              [models.Sequelize.Op.between]: [startDate, endDate]
+            }
+          }
+        },
+        {
+          model: models.Produit
+        }
+      ]
+    });
+
+    // 2) Récupérer toutes les RecuperationDetails
+    const recDetails = await models.RecuperationDetail.findAll({
+      include: [
+        {
+          model: models.Recuperation,
+          where: {
+            date_recuperation: {
+              [models.Sequelize.Op.between]: [startDate, endDate]
+            }
+          }
+        },
+        {
+          model: models.Produit
+        }
+      ]
+    });
+
+    // 3) Aggréger par produit : { "Sushi X": nombre, "Maki Y": nombre, ... }
+    let livraisonsParProduit = {};
+    let recuperationsParProduit = {};
+
+    livDetails.forEach(ld => {
+      const nomProd = ld.Produit.nom;
+      if (!livraisonsParProduit[nomProd]) {
+        livraisonsParProduit[nomProd] = 0;
+      }
+      livraisonsParProduit[nomProd] += ld.quantite;
+    });
+
+    recDetails.forEach(rd => {
+      const nomProd = rd.Produit.nom;
+      if (!recuperationsParProduit[nomProd]) {
+        recuperationsParProduit[nomProd] = 0;
+      }
+      recuperationsParProduit[nomProd] += rd.quantite;
+    });
+
+    // 4) Retourner le JSON
+    res.json({
+      livraisonsParProduit,
+      recuperationsParProduit
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur stats' });
+  }
+});
+
+/******************************************************
+ * Lancement du serveur
+ ******************************************************/
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Statistiques So Sushi</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Stats Livraisons / Récupérations</h1>
+  <canvas id="myChart"></canvas>
+
+  <script>
+    fetch('/stats/2025-03-01/2025-03-31')
+      .then(res => res.json())
+      .then(data => {
+        const { livraisonsParProduit, recuperationsParProduit } = data;
+
+        // Extraire les labels (noms de produits)
+        const produits = Object.keys(livraisonsParProduit);
+
+        // Données livraisons
+        const dataLivraisons = produits.map(prod => livraisonsParProduit[prod] || 0);
+        // Données récupérations
+        const dataRecups = produits.map(prod => recuperationsParProduit[prod] || 0);
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: produits,
+            datasets: [
+              {
+                label: 'Livraisons',
+                data: dataLivraisons
+              },
+              {
+                label: 'Récups',
+                data: dataRecups
+              }
+            ]
+          }
+        });
+      })
+      .catch(err => console.error(err));
+  </script>
+</body>
+</html>
+
