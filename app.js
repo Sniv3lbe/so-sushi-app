@@ -16,10 +16,13 @@ const nodemailer = require('nodemailer');
 
 // On importe la config Sequelize (qui lit aussi le .env en local)
 const sequelize = require('./config/database');
-// On importe tous les modèles (models/index.js) si nécessaire
+// On importe tous les modèles (models/index.js)
 const models = require('./models'); // Magasin, Produit, Livraison, etc.
 
 const app = express();
+
+// Configuration du moteur de vues EJS
+app.set('view engine', 'ejs');
 
 // Récupère le port depuis .env ou, à défaut, 3000
 const PORT = process.env.PORT || 3000;
@@ -57,16 +60,14 @@ sequelize.authenticate()
   .catch(err => console.error('Erreur sync DB :', err));
 
 /******************************************************
- * ROUTE DE TEST
+ * ROUTE DE TEST (racine)
  ******************************************************/
 app.get('/', (req, res) => {
   res.send('Hello from So Sushi App with Sequelize models!');
 });
 
 /******************************************************
- * 3) Routes Magasins (CRUD minimal)
- *    - POST /magasins  => crée un magasin
- *    - GET /magasins   => liste des magasins
+ * 3) Routes Magasins (CRUD minimal - version API JSON)
  ******************************************************/
 app.post('/magasins', async (req, res) => {
   try {
@@ -90,9 +91,7 @@ app.get('/magasins', async (req, res) => {
 });
 
 /******************************************************
- * 4) Routes Produits
- *    - POST /produits => créer un produit
- *    - GET /produits  => lister
+ * 4) Routes Produits (CRUD minimal - version API JSON)
  ******************************************************/
 app.post('/produits', async (req, res) => {
   try {
@@ -116,9 +115,8 @@ app.get('/produits', async (req, res) => {
 });
 
 /******************************************************
- * 5) Route Livraisons
+ * 5) Route Livraisons (API JSON)
  *    - POST /livraisons => créer une livraison (+ photo)
- *    - details est un tableau JSON : [{ produitId, quantite }, ...]
  ******************************************************/
 app.post('/livraisons', upload.single('photo'), async (req, res) => {
   try {
@@ -136,7 +134,7 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       photoPath = req.file.path; // ex: "uploads/1689456129_123456.jpg"
     }
 
-    // Création de la livraison
+    // Création de la livraison (table livraisons)
     const newLivraison = await models.Livraison.create({
       magasinId,
       date_livraison,
@@ -146,7 +144,7 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
       photo: photoPath
     });
 
-    // Création des détails
+    // Création des détails (livraisons_details)
     let parsedDetails = [];
     if (details) {
       parsedDetails = JSON.parse(details);
@@ -168,9 +166,8 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
 });
 
 /******************************************************
- * 6) Route Récupérations
+ * 6) Route Récupérations (API JSON)
  *    - POST /recuperations => créer une récupération (+ photo)
- *    - details est un tableau JSON : [{ produitId, quantite }, ...]
  ******************************************************/
 app.post('/recuperations', upload.single('photo'), async (req, res) => {
   try {
@@ -218,7 +215,7 @@ app.post('/recuperations', upload.single('photo'), async (req, res) => {
 });
 
 /******************************************************
- * 7) Route pour générer une facture (PDF)
+ * 7) Route facture PDF (API)
  ******************************************************/
 app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
   try {
@@ -288,16 +285,12 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
 
     // 5) Génération du PDF avec PDFKit
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
-
-    // Envoyer le PDF en streaming dans la réponse HTTP
     res.setHeader('Content-Type', 'application/pdf');
-    // Pour forcer le téléchargement :
-    // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf');
+    // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf'); // si besoin du téléchargement
 
     doc.fontSize(20).text('FACTURE / INVOICE', { align: 'center' });
     doc.moveDown();
 
-    // Infos principales
     const invoiceNumber = `2025-SSC-${Date.now()}`;
     doc.fontSize(12).text(`Facture N°: ${invoiceNumber}`);
     doc.text(`Date: ${moment().format('YYYY-MM-DD')}`);
@@ -305,7 +298,6 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     doc.text(`Magasin: ${magasin.nom}`);
     doc.moveDown();
 
-    // Montants
     doc.text(`Total Livraisons HT: ${totalLivraisonHT.toFixed(2)} €`);
     doc.text(`Total Récupérations HT: ${totalRecuperationHT.toFixed(2)} €`);
     doc.text(`Net HT (liv - récup): ${netHT.toFixed(2)} €`);
@@ -313,7 +305,6 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     doc.text(`Total TTC: ${totalTTC.toFixed(2)} €`);
     doc.moveDown();
 
-    // Coordonnées de paiement
     doc.text(`Coordonnées de paiement:`);
     doc.text(`BANQUE: XXX`);
     doc.text(`IBAN: BE00 0000 0000 0000`);
@@ -332,7 +323,7 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
 });
 
 /******************************************************
- * 8) Route pour envoyer la facture par email
+ * 8) Route pour envoyer la facture par email (API)
  ******************************************************/
 app.post('/facture/email', async (req, res) => {
   try {
@@ -355,7 +346,6 @@ app.post('/facture/email', async (req, res) => {
       let pdfData = Buffer.concat(buffers);
 
       // Config nodemailer
-      // => Lis par exemple user/pass/host/port depuis .env ou variables d'env
       const mailHost = process.env.MAIL_HOST || 'smtp.monserveur.com';
       const mailPort = parseInt(process.env.MAIL_PORT || '587', 10);
       const mailUser = process.env.MAIL_USER || 'monuser@exemple.com';
@@ -364,19 +354,18 @@ app.post('/facture/email', async (req, res) => {
       let transporter = nodemailer.createTransport({
         host: mailHost,
         port: mailPort,
-        secure: false, // 'false' si TLS, 'true' si SSL
+        secure: false,
         auth: {
           user: mailUser,
           pass: mailPass
         }
       });
 
-      // Email + pièce jointe
       let mailOptions = {
         from: '"So Sushi" <noreply@sosushi.be>',
         to: emailDest,
-        subject: "Votre facture So Sushi",
-        text: "Veuillez trouver ci-joint votre facture.",
+        subject: 'Votre facture So Sushi',
+        text: 'Veuillez trouver ci-joint votre facture.',
         attachments: [
           {
             filename: 'facture.pdf',
@@ -387,7 +376,7 @@ app.post('/facture/email', async (req, res) => {
       };
 
       let info = await transporter.sendMail(mailOptions);
-      console.log("Mail envoyé: " + info.messageId);
+      console.log('Mail envoyé: ' + info.messageId);
       return res.json({ message: 'Facture envoyée par email avec succès' });
     });
 
@@ -408,13 +397,13 @@ app.post('/facture/email', async (req, res) => {
 });
 
 /******************************************************
- * 9) Route stats : livraisons / récupérations par produit
+ * 9) Route stats (API) : livraisons / récupérations par produit
  ******************************************************/
 app.get('/stats/:startDate/:endDate', async (req, res) => {
   try {
     const { startDate, endDate } = req.params;
 
-    // 1) Récupérer toutes les LivraisonDetails (jointure sur Livraison + Produit)
+    // Récupérer toutes les LivraisonDetails
     const livDetails = await models.LivraisonDetail.findAll({
       include: [
         {
@@ -431,7 +420,7 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
       ]
     });
 
-    // 2) Récupérer toutes les RecuperationDetails
+    // Récupérer toutes les RecuperationDetails
     const recDetails = await models.RecuperationDetail.findAll({
       include: [
         {
@@ -448,7 +437,6 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
       ]
     });
 
-    // 3) Aggréger par produit : { "Sushi X": nombre, "Maki Y": nombre, ... }
     let livraisonsParProduit = {};
     let recuperationsParProduit = {};
 
@@ -468,7 +456,6 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
       recuperationsParProduit[nomProd] += rd.quantite;
     });
 
-    // 4) Retourner le JSON
     res.json({
       livraisonsParProduit,
       recuperationsParProduit
@@ -476,6 +463,70 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Erreur stats' });
+  }
+});
+
+/******************************************************
+ * ========== ROUTES ADMIN (EJS) POUR PRODUITS ==========
+ ******************************************************/
+
+// GET /admin/produits => Liste EJS
+app.get('/admin/produits', async (req, res) => {
+  try {
+    const produits = await models.Produit.findAll();
+    res.render('admin/produits', { produits });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Erreur chargement produits');
+  }
+});
+
+// GET /admin/produits/new => Formulaire EJS
+app.get('/admin/produits/new', (req, res) => {
+  res.render('admin/newProduit');
+});
+
+// POST /admin/produits => Crée un nouveau produit, puis redirige
+app.post('/admin/produits', async (req, res) => {
+  try {
+    const { nom, prix_unitaire } = req.body;
+    await models.Produit.create({ nom, prix_unitaire });
+    res.redirect('/admin/produits');
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Erreur création produit');
+  }
+});
+
+/******************************************************
+ * ========== ROUTES ADMIN (EJS) POUR MAGASINS ==========
+ ******************************************************/
+
+// GET /admin/magasins => Liste EJS
+app.get('/admin/magasins', async (req, res) => {
+  try {
+    const magasins = await models.Magasin.findAll();
+    res.render('admin/magasins', { magasins });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Erreur chargement magasins');
+  }
+});
+
+// GET /admin/magasins/new => Formulaire EJS
+app.get('/admin/magasins/new', (req, res) => {
+  res.render('admin/newMagasin');
+});
+
+// POST /admin/magasins => Crée un magasin, puis redirige
+app.post('/admin/magasins', async (req, res) => {
+  try {
+    const { nom, adresse, email_notification } = req.body;
+    await models.Magasin.create({ nom, adresse, email_notification });
+    res.redirect('/admin/magasins');
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Erreur création magasin');
   }
 });
 
