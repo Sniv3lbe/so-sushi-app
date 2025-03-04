@@ -1,0 +1,24 @@
+<%- include('admin/header') %>
+
+<h1>Liste des Produits</h1>
+<a href="/admin/produits/new">Créer un nouveau produit</a>
+<table border="1" cellpadding="5" cellspacing="0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nom</th>
+      <th>Prix Unitaire</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% produits.forEach(prod => { %>
+      <tr>
+        <td><%= prod.id %></td>
+        <td><%= prod.nom %></td>
+        <td><%= prod.prix_unitaire %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('admin/footer') %>
