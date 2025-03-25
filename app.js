@@ -1,9 +1,5 @@
 // app.js
 
-/******************************************************
- * Chargement du .env en local (aucun impact en prod
- * si le fichier .env n'existe pas sur le serveur)
- ******************************************************/
 require('dotenv').config();
 
 const express = require('express');
@@ -14,25 +10,23 @@ const fs = require('fs');
 const moment = require('moment');
 const nodemailer = require('nodemailer');
 
-// On importe la config Sequelize (qui lit aussi le .env en local)
 const sequelize = require('./config/database');
-// On importe tous les modèles (models/index.js)
-const models = require('./models'); // Magasin, Produit, Livraison, etc.
+const models = require('./models'); // index.js => { Magasin, Produit, Livraison, ... }
 
 const app = express();
 
 // Configuration du moteur de vues EJS
 app.set('view engine', 'ejs');
 
-// Récupère le port depuis .env ou, à défaut, 3000
+// Récupère le port depuis .env ou 3000 par défaut
 const PORT = process.env.PORT || 3000;
 
-// Middlewares pour parser JSON / urlencoded
+// Middlewares pour parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /******************************************************
- * 1) Configuration Multer (pour l'upload de photos/signatures)
+ * 1) Configuration Multer (upload photos/signatures)
  ******************************************************/
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -46,12 +40,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 /******************************************************
- * 2) Test de connexion DB + synchronisation
+ * 2) Test DB + sync
  ******************************************************/
 sequelize.authenticate()
   .then(() => {
     console.log('Connexion MySQL OK.');
-    // force: false pour ne pas recréer les tables à chaque démarrage
+    // force: false pour préserver les tables
     return sequelize.sync({ force: false });
   })
   .then(() => {
@@ -71,8 +65,14 @@ app.get('/', (req, res) => {
  ******************************************************/
 app.post('/magasins', async (req, res) => {
   try {
-    const { nom, adresse, email_notification } = req.body;
-    const newMagasin = await models.Magasin.create({ nom, adresse, email_notification });
+    const { nom, adresse, email_notification, marge, delai_paiement } = req.body;
+    const newMagasin = await models.Magasin.create({ 
+      nom, 
+      adresse, 
+      email_notification,
+      marge,
+      delai_paiement
+    });
     res.json(newMagasin);
   } catch (error) {
     console.error(error);
@@ -91,16 +91,16 @@ app.get('/magasins', async (req, res) => {
 });
 
 /******************************************************
- * 4) Routes Produits (CRUD minimal - version API JSON)
+ * 4) Routes Produits (CRUD minimal - API JSON)
  ******************************************************/
 app.post('/produits', async (req, res) => {
   try {
-    const { nom, prix_unitaire } = req.body;
-    const newProduit = await models.Produit.create({ nom, prix_unitaire });
+    const { nom, prix_vente, prix_achat } = req.body;
+    const newProduit = await models.Produit.create({ nom, prix_vente, prix_achat });
     res.json(newProduit);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la création du produit' });
+    res.status(500).json({ message: 'Erreur création produit' });
   }
 });
 
@@ -110,13 +110,12 @@ app.get('/produits', async (req, res) => {
     res.json(produits);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des produits' });
+    res.status(500).json({ message: 'Erreur récupération produits' });
   }
 });
 
 /******************************************************
- * 5) Route Livraisons (API JSON)
- *    - POST /livraisons => créer une livraison (+ photo)
+ * 5) Routes Livraisons (API JSON)
  ******************************************************/
 app.post('/livraisons', upload.single('photo'), async (req, res) => {
   try {
@@ -159,13 +158,12 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
     res.json({ message: 'Livraison créée avec succès', livraison: newLivraison });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la création de la livraison' });
+    res.status(500).json({ message: 'Erreur création livraison' });
   }
 });
 
 /******************************************************
- * 6) Route Récupérations (API JSON)
- *    - POST /recuperations => créer une récupération (+ photo)
+ * 6) Routes Récupérations (API JSON)
  ******************************************************/
 app.post('/recuperations', upload.single('photo'), async (req, res) => {
   try {
@@ -208,17 +206,18 @@ app.post('/recuperations', upload.single('photo'), async (req, res) => {
     res.json({ message: 'Récupération créée avec succès', recuperation: newRecup });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la création de la récupération' });
+    res.status(500).json({ message: 'Erreur création récupération' });
   }
 });
 
 /******************************************************
- * 7) Route facture PDF (API)
+ * 7) Route facture PDF (API) - EXEMPLE existant
+ *    (Tu peux garder ou remplacer par la nouvelle route)
  ******************************************************/
 app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
   try {
     const { magasinId, startDate, endDate } = req.params;
-
+    
     const magasin = await models.Magasin.findByPk(magasinId);
     if (!magasin) {
       return res.status(404).json({ message: 'Magasin introuvable' });
@@ -257,29 +256,26 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
     let totalLivraisonHT = 0;
     livraisons.forEach(livr => {
       livr.LivraisonDetails.forEach(ld => {
-        const prixU = parseFloat(ld.Produit.prix_unitaire);
-        const qte = parseInt(ld.quantite, 10);
-        totalLivraisonHT += prixU * qte;
+        const prix = parseFloat(ld.Produit.prix_vente) * (1 - magasin.marge/100);
+        totalLivraisonHT += prix * parseInt(ld.quantite, 10);
       });
     });
 
     let totalRecuperationHT = 0;
     recuperations.forEach(rec => {
       rec.RecuperationDetails.forEach(rd => {
-        const prixU = parseFloat(rd.Produit.prix_unitaire);
-        const qte = parseInt(rd.quantite, 10);
-        totalRecuperationHT += prixU * qte;
+        const prix = parseFloat(rd.Produit.prix_vente) * (1 - magasin.marge/100);
+        totalRecuperationHT += prix * parseInt(rd.quantite, 10);
       });
     });
 
     const netHT = totalLivraisonHT - totalRecuperationHT;
-    const tvaRate = 0.06; // 6%
+    const tvaRate = 0.06;
     const tva = netHT * tvaRate;
     const totalTTC = netHT + tva;
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
-    // res.setHeader('Content-Disposition', 'attachment; filename=facture.pdf');
 
     doc.fontSize(20).text('FACTURE / INVOICE', { align: 'center' });
     doc.moveDown();
@@ -293,13 +289,12 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
 
     doc.text(`Total Livraisons HT: ${totalLivraisonHT.toFixed(2)} €`);
     doc.text(`Total Récupérations HT: ${totalRecuperationHT.toFixed(2)} €`);
-    doc.text(`Net HT (liv - récup): ${netHT.toFixed(2)} €`);
+    doc.text(`Net HT: ${netHT.toFixed(2)} €`);
     doc.text(`TVA (6%): ${tva.toFixed(2)} €`);
     doc.text(`Total TTC: ${totalTTC.toFixed(2)} €`);
     doc.moveDown();
 
     doc.text(`Coordonnées de paiement:`);
-    doc.text(`BANQUE: XXX`);
     doc.text(`IBAN: BE00 0000 0000 0000`);
     doc.text(`BIC: XXXX`);
     doc.moveDown();
@@ -311,24 +306,21 @@ app.get('/facture/:magasinId/:startDate/:endDate', async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la génération de la facture' });
+    res.status(500).json({ message: 'Erreur génération facture' });
   }
 });
 
 /******************************************************
  * 8) Route pour envoyer la facture par email (API)
+ *    (Exemple existant, tu peux réutiliser la nouvelle logique)
  ******************************************************/
 app.post('/facture/email', async (req, res) => {
   try {
     const { magasinId, startDate, endDate, emailDest } = req.body;
 
-    const totalLivraisonHT = 100;
-    const totalRecuperationHT = 20;
-    const netHT = 80;
-    const tvaRate = 0.06;
-    const tva = netHT * tvaRate;
-    const totalTTC = netHT + tva;
+    // ...exemple original
 
+    // Génération PDF
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     let buffers = [];
 
@@ -372,12 +364,7 @@ app.post('/facture/email', async (req, res) => {
 
     doc.fontSize(20).text('FACTURE EXAMPLE', { align: 'center' });
     doc.moveDown();
-    doc.text(`Total Livraisons HT: ${totalLivraisonHT.toFixed(2)} €`);
-    doc.text(`Total Récupérations HT: ${totalRecuperationHT.toFixed(2)} €`);
-    doc.text(`Net HT: ${netHT.toFixed(2)} €`);
-    doc.text(`TVA (6%): ${tva.toFixed(2)} €`);
-    doc.text(`Total TTC: ${totalTTC.toFixed(2)} €`);
-
+    doc.text(`(Ici, tu peux mettre le détail)`);
     doc.end();
 
   } catch (error) {
@@ -387,7 +374,7 @@ app.post('/facture/email', async (req, res) => {
 });
 
 /******************************************************
- * 9) Route stats (API) : livraisons / récupérations par produit
+ * 9) Route stats (API)
  ******************************************************/
 app.get('/stats/:startDate/:endDate', async (req, res) => {
   try {
@@ -455,7 +442,7 @@ app.get('/stats/:startDate/:endDate', async (req, res) => {
 });
 
 /******************************************************
- * ========== ROUTES ADMIN (EJS) POUR PRODUITS ==========
+ * ========== ROUTES ADMIN (EJS) ==========
  ******************************************************/
 // GET /admin/produits => Liste EJS
 app.get('/admin/produits', async (req, res) => {
@@ -473,11 +460,11 @@ app.get('/admin/produits/new', (req, res) => {
   res.render('admin/newProduit');
 });
 
-// POST /admin/produits => Crée un nouveau produit, puis redirige
+// POST /admin/produits => nouveau produit
 app.post('/admin/produits', async (req, res) => {
   try {
-    const { nom, prix_unitaire } = req.body;
-    await models.Produit.create({ nom, prix_unitaire });
+    const { nom, prix_vente, prix_achat } = req.body;
+    await models.Produit.create({ nom, prix_vente, prix_achat });
     res.redirect('/admin/produits');
   } catch (error) {
     console.error(error);
@@ -486,10 +473,14 @@ app.post('/admin/produits', async (req, res) => {
 });
 
 /******************************************************
- * ========== (Tu peux créer d'autres routes admin EJS ici) ==========
+ * 10) Nouveau : on installe le router /factures
  ******************************************************/
+const factureRoutes = require('./routes/factures');
+app.use('/factures', factureRoutes);
 
-// Lancement du serveur
+/******************************************************
+ * Lancement du serveur
+ ******************************************************/
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
