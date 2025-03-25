@@ -3,13 +3,12 @@
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
-// Essaie de récupérer l'URL fournie par Heroku JawsDB/ClearDB, s'il existe
+// Si tu es sur Heroku, tu peux avoir JAWSDB_URL ou CLEARDB_DATABASE_URL
 const jawsDBUrl = process.env.JAWSDB_URL || process.env.CLEARDB_DATABASE_URL;
 
 let sequelize;
 
 if (jawsDBUrl) {
-  // Sur un hébergement type Heroku, on utilise l'URL fournie
   sequelize = new Sequelize(jawsDBUrl, {
     dialect: 'mysql',
     logging: false,
