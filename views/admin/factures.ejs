@@ -1,0 +1,37 @@
+<%- include('admin/header') %>
+
+<h1>Liste des Factures</h1>
+<p>
+  <!-- Bouton pour créer une facture manuellement -->
+  <a href="#" class="btn btn-success">Créer une facture</a>
+</p>
+
+<table class="table table-bordered table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>ID</th>
+      <th>Numéro</th>
+      <th>Magasin</th>
+      <th>Date facture</th>
+      <th>Date échéance</th>
+      <th>Total HT</th>
+      <th>Total TTC</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% factures.forEach(f => { %>
+      <tr>
+        <td><%= f.id %></td>
+        <td><%= f.invoiceNumber %></td>
+        <td><%= f.Magasin ? f.Magasin.nom : 'N/A' %></td>
+        <td><%= f.dateFacture %></td>
+        <td><%= f.dateEcheance %></td>
+        <td><%= f.totalHT %></td>
+        <td><%= f.totalTTC %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('admin/footer') %>
+

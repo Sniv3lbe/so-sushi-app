@@ -1,0 +1,34 @@
+<%- include('admin/header') %>
+
+<h1>Liste des Magasins</h1>
+<p>
+  <a href="#" class="btn btn-primary">Créer un nouveau magasin</a>
+</p>
+
+<table class="table table-bordered table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>ID</th>
+      <th>Nom</th>
+      <th>Adresse</th>
+      <th>Email</th>
+      <th>Marge (%)</th>
+      <th>Délai Paiement (j)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% magasins.forEach(m => { %>
+      <tr>
+        <td><%= m.id %></td>
+        <td><%= m.nom %></td>
+        <td><%= m.adresse %></td>
+        <td><%= m.email_notification %></td>
+        <td><%= m.marge %></td>
+        <td><%= m.delai_paiement %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('admin/footer') %>
+

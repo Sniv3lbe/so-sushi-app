@@ -7,12 +7,11 @@ const Produit = sequelize.define('Produit', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  // Ex: prix "public" (celui que tu affiches sur les étiquettes)
   prix_vente: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
-  // Si besoin, ton coût d’achat
+  // Optionnellement, si tu veux un prix d'achat (coût)
   prix_achat: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true

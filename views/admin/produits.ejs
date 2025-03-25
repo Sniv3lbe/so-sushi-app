@@ -1,13 +1,17 @@
-<%- include('./header') %>
+<%- include('admin/header') %>
 
 <h1>Liste des Produits</h1>
-<a href="/admin/produits/new">Créer un nouveau produit</a>
-<table border="1" cellpadding="5" cellspacing="0">
-  <thead>
+<p>
+  <a href="#" class="btn btn-primary">Créer un nouveau produit</a>
+</p>
+
+<table class="table table-bordered table-hover">
+  <thead class="table-light">
     <tr>
       <th>ID</th>
       <th>Nom</th>
-      <th>Prix Unitaire</th>
+      <th>Prix Vente</th>
+      <th>Prix Achat</th>
     </tr>
   </thead>
   <tbody>
@@ -15,10 +19,11 @@
       <tr>
         <td><%= prod.id %></td>
         <td><%= prod.nom %></td>
-        <td><%= prod.prix_unitaire %></td>
+        <td><%= prod.prix_vente %></td>
+        <td><%= prod.prix_achat %></td>
       </tr>
     <% }) %>
   </tbody>
 </table>
 
-<%- include('./footer') %>
+<%- include('admin/footer') %>

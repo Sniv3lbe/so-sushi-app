@@ -7,20 +7,18 @@ const Recuperation = require('./Recuperation');
 const RecuperationDetail = require('./RecuperationDetail');
 const Invoice = require('./Invoice');
 
-// Associations Livraisons
+// Associations pour Livraisons
 Livraison.belongsTo(Magasin, { foreignKey: 'magasinId' });
 LivraisonDetail.belongsTo(Livraison, { foreignKey: 'livraisonId' });
 LivraisonDetail.belongsTo(Produit, { foreignKey: 'produitId' });
 
-// Associations Récupérations
+// Associations pour Récupérations
 Recuperation.belongsTo(Magasin, { foreignKey: 'magasinId' });
 RecuperationDetail.belongsTo(Recuperation, { foreignKey: 'recuperationId' });
 RecuperationDetail.belongsTo(Produit, { foreignKey: 'produitId' });
 
-// Association Factures
+// Association Facture -> Magasin
 Invoice.belongsTo(Magasin, { foreignKey: 'magasinId' });
-// => un Invoice aura invoice.magasinId
-//    permet de savoir pour quel magasin la facture est émise
 
 module.exports = {
   Magasin,

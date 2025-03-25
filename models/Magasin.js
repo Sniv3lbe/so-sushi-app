@@ -14,15 +14,15 @@ const Magasin = sequelize.define('Magasin', {
     type: DataTypes.STRING
   },
   marge: {
-    type: DataTypes.DECIMAL(5,2), // ex: 20.00 = 20%
+    type: DataTypes.DECIMAL(5,2), // ex: 20 => 20%
     defaultValue: 20.00
   },
   delai_paiement: {
-    type: DataTypes.INTEGER, // en jours
+    type: DataTypes.INTEGER, // nb de jours
     defaultValue: 30
   }
 }, {
-  tableName: 'magasins', // nom de table
+  tableName: 'magasins'
 });
 
 module.exports = Magasin;

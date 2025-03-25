@@ -1,0 +1,20 @@
+<%- include('admin/header') %>
+
+<h1 class="mb-4">Dashboard</h1>
+
+<div class="row">
+  <div class="col-sm-6">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Chiffre d'affaires du jour</h5>
+        <p class="card-text">
+          <strong><%= totalHT.toFixed(2) %> €</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- Tu peux ajouter d'autres "cards" pour afficher d'autres stats -->
+</div>
+
+<%- include('admin/footer') %>
+
