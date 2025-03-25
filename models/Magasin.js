@@ -12,10 +12,17 @@ const Magasin = sequelize.define('Magasin', {
   },
   email_notification: {
     type: DataTypes.STRING
+  },
+  marge: {
+    type: DataTypes.DECIMAL(5,2), // ex: 20.00 = 20%
+    defaultValue: 20.00
+  },
+  delai_paiement: {
+    type: DataTypes.INTEGER, // en jours
+    defaultValue: 30
   }
 }, {
-  tableName: 'magasins', // pour que Sequelize utilise "magasins" comme nom de table
+  tableName: 'magasins', // nom de table
 });
 
 module.exports = Magasin;
-

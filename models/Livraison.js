@@ -24,4 +24,3 @@ const Livraison = sequelize.define('Livraison', {
 });
 
 module.exports = Livraison;
-

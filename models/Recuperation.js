@@ -24,4 +24,3 @@ const Recuperation = sequelize.define('Recuperation', {
 });
 
 module.exports = Recuperation;
-

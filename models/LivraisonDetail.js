@@ -12,4 +12,3 @@ const LivraisonDetail = sequelize.define('LivraisonDetail', {
 });
 
 module.exports = LivraisonDetail;
-

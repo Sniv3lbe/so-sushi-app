@@ -12,4 +12,3 @@ const RecuperationDetail = sequelize.define('RecuperationDetail', {
 });
 
 module.exports = RecuperationDetail;
-
