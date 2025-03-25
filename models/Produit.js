@@ -8,11 +8,12 @@ const Produit = sequelize.define('Produit', {
     allowNull: false
   },
   prix_vente: {
+    // La colonne qui doit exister en base
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
-  // Optionnellement, si tu veux un prix d'achat (coût)
   prix_achat: {
+    // Optionnel, si tu en as besoin
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true
   }

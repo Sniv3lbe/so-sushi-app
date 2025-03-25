@@ -8,11 +8,11 @@ const Invoice = sequelize.define('Invoice', {
     allowNull: false
   },
   dateFacture: {
-    type: DataTypes.DATEONLY, // ex: 2025-03-24
+    type: DataTypes.DATEONLY,
     allowNull: false
   },
   dateEcheance: {
-    type: DataTypes.DATEONLY, // ex: 2025-04-08
+    type: DataTypes.DATEONLY,
     allowNull: false
   },
   totalHT: {

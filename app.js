@@ -4,32 +4,32 @@ require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const PDFDocument = require('pdfkit'); // si besoin
+const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const moment = require('moment');
 const nodemailer = require('nodemailer');
 
 const sequelize = require('./config/database');
-const models = require('./models'); // { Magasin, Produit, ... }
+const models = require('./models'); // => index.js
 const { Op } = require('sequelize');
 
 const app = express();
 
-// === 1) Moteur de template EJS ===
+// Moteur EJS
 app.set('view engine', 'ejs');
 
-// === 2) Port & Parsing ===
+// PORT
 const PORT = process.env.PORT || 3000;
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public')); // pour CSS/JS statique
 
-// === 3) Statique (Bootstrap, custom CSS, etc.) ===
-app.use(express.static('public'));
-
-// === 4) Config Multer (upload) ===
+// Multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    cb(null, 'uploads/'); // dossier
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1e9);
@@ -38,25 +38,27 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// === 5) Connexion DB + Sync ===
+// Connexion DB + Sync
 sequelize.authenticate()
   .then(() => {
     console.log('Connexion MySQL OK.');
+
+    // ATTENTION: si tu veux recréer la table produits avec la colonne prix_vente
+    // mets force: true ou alter: true. (force: true efface tout, alter: true essaie d'ajuster)
     return sequelize.sync({ force: false });
+    // return sequelize.sync({ alter: true });
   })
   .then(() => {
     console.log('Tables synchronisées !');
   })
   .catch(err => console.error('Erreur sync DB :', err));
 
-// === 6) Route d'accueil ===
+// ROUTE RACINE
 app.get('/', (req, res) => {
   res.send('Hello from So Sushi App with Sequelize models + Dashboard!');
 });
 
-// === 7) Routes CRUD Magasins, Produits, etc. ===
-
-// Magasins
+// CRUD Magasins
 app.post('/magasins', async (req, res) => {
   try {
     const { nom, adresse, email_notification, marge, delai_paiement } = req.body;
@@ -84,7 +86,7 @@ app.get('/magasins', async (req, res) => {
   }
 });
 
-// Produits
+// CRUD Produits
 app.post('/produits', async (req, res) => {
   try {
     const { nom, prix_vente, prix_achat } = req.body;
@@ -198,90 +200,18 @@ app.post('/recuperations', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Stats
-app.get('/stats/:startDate/:endDate', async (req, res) => {
-  try {
-    const { startDate, endDate } = req.params;
-
-    const livDetails = await models.LivraisonDetail.findAll({
-      include: [
-        {
-          model: models.Livraison,
-          where: {
-            date_livraison: {
-              [Op.between]: [startDate, endDate]
-            }
-          }
-        },
-        {
-          model: models.Produit
-        }
-      ]
-    });
-
-    const recDetails = await models.RecuperationDetail.findAll({
-      include: [
-        {
-          model: models.Recuperation,
-          where: {
-            date_recuperation: {
-              [Op.between]: [startDate, endDate]
-            }
-          }
-        },
-        {
-          model: models.Produit
-        }
-      ]
-    });
-
-    let livraisonsParProduit = {};
-    let recuperationsParProduit = {};
-
-    livDetails.forEach(ld => {
-      const nomProd = ld.Produit.nom;
-      if (!livraisonsParProduit[nomProd]) {
-        livraisonsParProduit[nomProd] = 0;
-      }
-      livraisonsParProduit[nomProd] += ld.quantite;
-    });
-
-    recDetails.forEach(rd => {
-      const nomProd = rd.Produit.nom;
-      if (!recuperationsParProduit[nomProd]) {
-        recuperationsParProduit[nomProd] = 0;
-      }
-      recuperationsParProduit[nomProd] += rd.quantite;
-    });
-
-    res.json({
-      livraisonsParProduit,
-      recuperationsParProduit
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Erreur stats' });
-  }
-});
-
-// === 8) Intégration du router Factures ===
-const factureRoutes = require('./routes/factures');
-app.use('/factures', factureRoutes);
-
-// === 9) Routes Admin (EJS) ===
-// a) Dashboard
+// EXEMPLE route /admin/dashboard
 app.get('/admin/dashboard', async (req, res) => {
   try {
-    // Ex: petit résumé du total CA du jour (exemple)
-    // -> On peut faire un calcul sur les livraisons d'aujourd'hui
     const today = moment().format('YYYY-MM-DD');
 
+    // On inclut LivraisonDetail + Produit + Magasin
     const todaysLivraisons = await models.Livraison.findAll({
       where: { date_livraison: today },
       include: [
         {
           model: models.LivraisonDetail,
-          include: [models.Produit]
+          include: [ models.Produit ]
         },
         {
           model: models.Magasin
@@ -291,59 +221,25 @@ app.get('/admin/dashboard', async (req, res) => {
 
     let totalHT = 0;
     todaysLivraisons.forEach(liv => {
+      const marge = liv.Magasin.marge || 20;
       liv.LivraisonDetails.forEach(ld => {
         const prixVente = parseFloat(ld.Produit.prix_vente) || 0;
-        const marge = liv.Magasin.marge || 20; // fallback
-        totalHT += (prixVente * (1 - marge/100)) * ld.quantite;
+        const qte = ld.quantite;
+        const prixFacture = prixVente * (1 - marge/100);
+        totalHT += prixFacture * qte;
       });
     });
 
-    res.render('admin/dashboard', {
-      totalHT
-    });
+    // Si tu as une vue EJS "admin/dashboard.ejs"
+    // on y passe totalHT
+    res.render('admin/dashboard', { totalHT });
   } catch (err) {
-    console.error(err);
+    console.error('Erreur Dashboard:', err);
     res.status(500).send('Erreur chargement dashboard');
   }
 });
 
-// b) Produits (version EJS)
-app.get('/admin/produits', async (req, res) => {
-  try {
-    const produits = await models.Produit.findAll();
-    res.render('admin/produits', { produits });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Erreur chargement produits');
-  }
-});
-
-// c) Magasins (version EJS)
-app.get('/admin/magasins', async (req, res) => {
-  try {
-    const magasins = await models.Magasin.findAll();
-    res.render('admin/magasins', { magasins });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Erreur chargement magasins');
-  }
-});
-
-// d) Factures (version EJS) - simple listing depuis la table Invoice
-app.get('/admin/factures', async (req, res) => {
-  try {
-    const factures = await models.Invoice.findAll({
-      include: [models.Magasin],
-      order: [['id', 'DESC']]
-    });
-    res.render('admin/factures', { factures });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Erreur chargement factures');
-  }
-});
-
-// === 10) Lancement du serveur ===
+// Lancement
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

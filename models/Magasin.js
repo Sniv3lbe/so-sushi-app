@@ -14,11 +14,11 @@ const Magasin = sequelize.define('Magasin', {
     type: DataTypes.STRING
   },
   marge: {
-    type: DataTypes.DECIMAL(5,2), // ex: 20 => 20%
+    type: DataTypes.DECIMAL(5,2),
     defaultValue: 20.00
   },
   delai_paiement: {
-    type: DataTypes.INTEGER, // nb de jours
+    type: DataTypes.INTEGER,
     defaultValue: 30
   }
 }, {
