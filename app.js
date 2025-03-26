@@ -43,13 +43,13 @@ sequelize.authenticate()
   .then(() => {
     console.log('Connexion MySQL OK.');
 
-    // Pour créer/mettre à jour la table "produits" avec la colonne prix_vente:
-    // alter: true => tente d'ajouter les colonnes manquantes sans tout effacer
-    // force: true => supprime puis recrée (dangereux en prod)
-    return sequelize.sync({ alter: true });
+    // ICI : force: true va DÉTRUIRE et RECRÉER toutes les tables
+    // => tu perds tes données existantes, mais tu es sûr de créer la colonne prix_vente
+    // Si tu veux essayer d'ajouter la colonne sans tout effacer : mets alter: true à la place
+    return sequelize.sync({ force: true });
   })
   .then(() => {
-    console.log('Tables synchronisées !');
+    console.log('Tables synchronisées (force: true) !');
   })
   .catch(err => console.error('Erreur sync DB :', err));
 
@@ -89,7 +89,7 @@ app.get('/magasins', async (req, res) => {
 // CRUD Produits
 app.post('/produits', async (req, res) => {
   try {
-    // ICI on attend nom, prix_vente, prix_achat
+    // On attend nom, prix_vente, prix_achat
     const { nom, prix_vente, prix_achat } = req.body;
     const newProduit = await models.Produit.create({ nom, prix_vente, prix_achat });
     res.json(newProduit);
@@ -232,6 +232,7 @@ app.get('/admin/dashboard', async (req, res) => {
     });
 
     // Vue EJS
+    // => Il faut s'assurer que "dashboard.ejs" inclut "header" avec un chemin correct
     res.render('admin/dashboard', { totalHT });
   } catch (err) {
     console.error('Erreur Dashboard:', err);
