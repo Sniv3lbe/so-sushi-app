@@ -240,11 +240,10 @@ app.get('/admin/dashboard', async (req, res) => {
 
 // === PRODUITS (EJS) ===
 
-// 1) Liste
+// 1) Liste (existe déjà)
 app.get('/admin/produits', async (req, res) => {
   try {
     const produits = await models.Produit.findAll();
-    // Rendre la vue EJS "admin/produits.ejs"
     res.render('admin/produits', { produits });
   } catch (err) {
     console.error(err);
@@ -252,18 +251,17 @@ app.get('/admin/produits', async (req, res) => {
   }
 });
 
-// 2) Formulaire Nouveau
+// 2) Formulaire Nouveau PRODUIT
 app.get('/admin/produits/new', (req, res) => {
+  // Vue EJS "newProduit.ejs" (qui contient un <form>)
   res.render('admin/newProduit');
 });
 
-// 3) Création
+// 3) Création PRODUIT
 app.post('/admin/produits', async (req, res) => {
   try {
-    // Récup le form
     const { nom, prix_vente, prix_achat } = req.body;
     await models.Produit.create({ nom, prix_vente, prix_achat });
-    // On redirige vers la liste
     res.redirect('/admin/produits');
   } catch (err) {
     console.error(err);
@@ -283,7 +281,28 @@ app.get('/admin/magasins', async (req, res) => {
   }
 });
 
+// 1) Nouveau magasin - on a besoin d'un fichier newMagasin.ejs
+app.get('/admin/magasins/new', (req, res) => {
+  // Rends une vue EJS (newMagasin.ejs) si tu la crées
+  res.render('admin/newMagasin');
+});
+
+// 2) Création magasin
+app.post('/admin/magasins', async (req, res) => {
+  try {
+    const { nom, adresse, email_notification, marge, delai_paiement } = req.body;
+    await models.Magasin.create({
+      nom, adresse, email_notification, marge, delai_paiement
+    });
+    res.redirect('/admin/magasins');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erreur création magasin');
+  }
+});
+
 // === FACTURES (EJS) ===
+
 app.get('/admin/factures', async (req, res) => {
   try {
     // Ex: On liste toutes les "Invoice"
@@ -294,6 +313,27 @@ app.get('/admin/factures', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Erreur chargement factures');
+  }
+});
+
+// 1) Nouveau facture - on pourrait avoir un newFacture.ejs
+app.get('/admin/factures/new', (req, res) => {
+  // Rends une vue EJS (newFacture.ejs) si tu la crées
+  // Dans ce form, tu peux demander date, magasin, etc.
+  res.render('admin/newFacture');
+});
+
+// 2) Création facture
+app.post('/admin/factures', async (req, res) => {
+  try {
+    // ... tu récupères le form
+    // ex: const { magasinId, dateFacture } = req.body;
+    // models.Invoice.create({ ... })
+    // etc.
+    res.redirect('/admin/factures');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erreur création facture');
   }
 });
 
