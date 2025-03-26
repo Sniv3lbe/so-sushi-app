@@ -1,0 +1,45 @@
+<%- include('./header') %>
+
+<h1>Créer une Facture</h1>
+
+<form action="/admin/factures" method="POST">
+  <div class="mb-3">
+    <label for="magasinId" class="form-label">Magasin ID</label>
+    <input type="number" class="form-control" id="magasinId" name="magasinId" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="dateFacture" class="form-label">Date Facture</label>
+    <input type="date" class="form-control" id="dateFacture" name="dateFacture" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="deliveryStart" class="form-label">Début livraisons</label>
+    <input type="date" class="form-control" id="deliveryStart" name="deliveryStart" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="deliveryEnd" class="form-label">Fin livraisons</label>
+    <input type="date" class="form-control" id="deliveryEnd" name="deliveryEnd" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="recovStart" class="form-label">Début récupérations</label>
+    <input type="date" class="form-control" id="recovStart" name="recovStart" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="recovEnd" class="form-label">Fin récupérations</label>
+    <input type="date" class="form-control" id="recovEnd" name="recovEnd" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="invoiceNumber" class="form-label">Numéro de facture</label>
+    <input type="text" class="form-control" id="invoiceNumber" name="invoiceNumber" placeholder="2025-SSK-001" required>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Créer la facture</button>
+</form>
+
+<%- include('./footer') %>
+

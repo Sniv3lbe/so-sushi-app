@@ -1,0 +1,35 @@
+<%- include('./header') %>
+
+<h1>Créer un nouveau Magasin</h1>
+
+<form action="/admin/magasins" method="POST">
+  <div class="mb-3">
+    <label for="nom" class="form-label">Nom du magasin</label>
+    <input type="text" class="form-control" id="nom" name="nom" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="adresse" class="form-label">Adresse</label>
+    <input type="text" class="form-control" id="adresse" name="adresse">
+  </div>
+
+  <div class="mb-3">
+    <label for="email_notification" class="form-label">Email notification</label>
+    <input type="email" class="form-control" id="email_notification" name="email_notification">
+  </div>
+
+  <div class="mb-3">
+    <label for="marge" class="form-label">Marge (%)</label>
+    <input type="number" class="form-control" step="0.01" id="marge" name="marge" value="20">
+  </div>
+
+  <div class="mb-3">
+    <label for="delai_paiement" class="form-label">Délai paiement (jours)</label>
+    <input type="number" class="form-control" id="delai_paiement" name="delai_paiement" value="30">
+  </div>
+
+  <button type="submit" class="btn btn-primary">Enregistrer</button>
+</form>
+
+<%- include('./footer') %>
+
