@@ -10,39 +10,37 @@ const moment = require('moment');
 const nodemailer = require('nodemailer');
 
 const sequelize = require('./config/database');
-const models = require('./models');
+const models = require('./models'); // => index.js (Magasin, Produit, etc.)
 const { Op } = require('sequelize');
 
 const app = express();
 
-// Moteur EJS
+// 1) Configuration EJS
 app.set('view engine', 'ejs');
 
-// PORT
+// 2) Port & Middlewares
 const PORT = process.env.PORT || 3000;
-
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); // pour CSS/JS statique
+app.use(express.static('public')); // pour les fichiers statiques (CSS, JS, etc.)
 
-// Multer
+// 3) Configuration Multer (upload)
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: (req, file, cb) => {
     cb(null, 'uploads/'); 
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 const upload = multer({ storage });
 
-// Connexion DB + Sync
+// 4) Connexion DB + Sync
 sequelize.authenticate()
   .then(() => {
     console.log('Connexion MySQL OK.');
-    // force: true supprime et recrée toutes les tables
+    // force: true -> détruit et recrée toutes les tables à chaque démarrage
     return sequelize.sync({ force: true });
   })
   .then(() => {
@@ -50,18 +48,19 @@ sequelize.authenticate()
   })
   .catch(err => console.error('Erreur sync DB :', err));
 
-// ROUTE RACINE
+// 5) Route racine
 app.get('/', (req, res) => {
   res.send('Hello from So Sushi App with Sequelize models + Dashboard!');
 });
 
-/* =========================
-   ========== API JSON ======
-   ========================= 
-   (Tu les conserves si tu veux) 
+/* 
+   ================================================================
+   ================ SECTION : API JSON (CRUD minimal) ============= 
+   ================================================================
+   Conserve ces routes si tu veux des endpoints JSON
 */
 
-// CRUD Magasins (JSON)
+// -- Magasins (API JSON) --
 app.post('/magasins', async (req, res) => {
   try {
     const { nom, adresse, email_notification, marge, delai_paiement } = req.body;
@@ -89,7 +88,7 @@ app.get('/magasins', async (req, res) => {
   }
 });
 
-// CRUD Produits (JSON)
+// -- Produits (API JSON) --
 app.post('/produits', async (req, res) => {
   try {
     const { nom, prix_vente, prix_achat } = req.body;
@@ -111,7 +110,7 @@ app.get('/produits', async (req, res) => {
   }
 });
 
-// Livraisons (JSON)
+// -- Livraisons (API JSON) --
 app.post('/livraisons', upload.single('photo'), async (req, res) => {
   try {
     const {
@@ -157,7 +156,7 @@ app.post('/livraisons', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Récupérations (JSON)
+// -- Récupérations (API JSON) --
 app.post('/recuperations', upload.single('photo'), async (req, res) => {
   try {
     const {
@@ -203,17 +202,18 @@ app.post('/recuperations', upload.single('photo'), async (req, res) => {
   }
 });
 
-/* ==============================
-   ========== ADMIN EJS =========
-   ==============================
-   ICI on gère la version "pages" 
-   (/admin/...) pour Produits, Magasins, etc.
+/*
+   ================================================================
+   ==================== SECTION ADMIN (EJS) =======================
+   ================================================================
+   Routes pour /admin/..., affichant des vues EJS
 */
 
-// Dashboard (existant)
+// -- Dashboard --
 app.get('/admin/dashboard', async (req, res) => {
   try {
     const today = moment().format('YYYY-MM-DD');
+
     const todaysLivraisons = await models.Livraison.findAll({
       where: { date_livraison: today },
       include: [
@@ -227,7 +227,7 @@ app.get('/admin/dashboard', async (req, res) => {
       const marge = liv.Magasin.marge || 20;
       liv.LivraisonDetails.forEach(ld => {
         const pv = parseFloat(ld.Produit.prix_vente) || 0;
-        totalHT += (pv * (1 - marge/100)) * ld.quantite;
+        totalHT += (pv * (1 - marge / 100)) * ld.quantite;
       });
     });
 
@@ -238,9 +238,9 @@ app.get('/admin/dashboard', async (req, res) => {
   }
 });
 
-// === PRODUITS (EJS) ===
+// -- PRODUITS (EJS) --
 
-// 1) Liste (existe déjà)
+// Liste des produits (EJS)
 app.get('/admin/produits', async (req, res) => {
   try {
     const produits = await models.Produit.findAll();
@@ -251,26 +251,26 @@ app.get('/admin/produits', async (req, res) => {
   }
 });
 
-// 2) Formulaire Nouveau PRODUIT
+// Formulaire "Nouveau produit"
 app.get('/admin/produits/new', (req, res) => {
-  // Vue EJS "newProduit.ejs" (qui contient un <form>)
   res.render('admin/newProduit');
 });
 
-// 3) Création PRODUIT
+// POST création produit
 app.post('/admin/produits', async (req, res) => {
   try {
     const { nom, prix_vente, prix_achat } = req.body;
     await models.Produit.create({ nom, prix_vente, prix_achat });
-    res.redirect('/admin/produits');
+    return res.redirect('/admin/produits');
   } catch (err) {
     console.error(err);
     res.status(500).send('Erreur création produit');
   }
 });
 
-// === MAGASINS (EJS) ===
+// -- MAGASINS (EJS) --
 
+// Liste des magasins (EJS)
 app.get('/admin/magasins', async (req, res) => {
   try {
     const magasins = await models.Magasin.findAll();
@@ -281,34 +281,35 @@ app.get('/admin/magasins', async (req, res) => {
   }
 });
 
-// 1) Nouveau magasin - on a besoin d'un fichier newMagasin.ejs
+// Formulaire "Nouveau magasin"
 app.get('/admin/magasins/new', (req, res) => {
-  // Rends une vue EJS (newMagasin.ejs) si tu la crées
   res.render('admin/newMagasin');
 });
 
-// 2) Création magasin
+// POST création magasin
 app.post('/admin/magasins', async (req, res) => {
   try {
     const { nom, adresse, email_notification, marge, delai_paiement } = req.body;
     await models.Magasin.create({
-      nom, adresse, email_notification, marge, delai_paiement
+      nom,
+      adresse,
+      email_notification,
+      marge,
+      delai_paiement
     });
-    res.redirect('/admin/magasins');
+    return res.redirect('/admin/magasins');
   } catch (err) {
     console.error(err);
     res.status(500).send('Erreur création magasin');
   }
 });
 
-// === FACTURES (EJS) ===
+// -- FACTURES (EJS) --
 
+// Liste des factures (EJS)
 app.get('/admin/factures', async (req, res) => {
   try {
-    // Ex: On liste toutes les "Invoice"
-    const factures = await models.Invoice.findAll({
-      include: [models.Magasin]
-    });
+    const factures = await models.Invoice.findAll({ include: [models.Magasin] });
     res.render('admin/factures', { factures });
   } catch (err) {
     console.error(err);
@@ -316,28 +317,24 @@ app.get('/admin/factures', async (req, res) => {
   }
 });
 
-// 1) Nouveau facture - on pourrait avoir un newFacture.ejs
+// Formulaire "Nouvelle facture"
 app.get('/admin/factures/new', (req, res) => {
-  // Rends une vue EJS (newFacture.ejs) si tu la crées
-  // Dans ce form, tu peux demander date, magasin, etc.
   res.render('admin/newFacture');
 });
 
-// 2) Création facture
+// POST création facture
 app.post('/admin/factures', async (req, res) => {
   try {
-    // ... tu récupères le form
-    // ex: const { magasinId, dateFacture } = req.body;
-    // models.Invoice.create({ ... })
-    // etc.
-    res.redirect('/admin/factures');
+    // Récupère le form : ex: const { magasinId, dateFacture } = req.body;
+    // ... stocke en DB ou effectue la logique
+    return res.redirect('/admin/factures');
   } catch (err) {
     console.error(err);
     res.status(500).send('Erreur création facture');
   }
 });
 
-// Lancement du serveur
+// 6) Lancement du serveur
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
